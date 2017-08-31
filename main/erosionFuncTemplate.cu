@@ -1,18 +1,22 @@
-typedef int(*pointFunction_t)(int, int);
 
-__device__ inline int pComputeMin(int a, int b)
+
+typedef unsigned char(*pointFunction_t)(unsigned char, unsigned char);
+
+__device__
+unsigned char pComputeMin(unsigned char a, unsigned char b)
 {
 	return (a < b) ? a : b;
 }
 
-__device__ inline int pComputeMax(int a, int b)
+__device__
+unsigned char pComputeMax(unsigned char a, unsigned char b)
 {
 	return (a > b) ? a : b;
 }
 
-__device__ void FilterStep2K(int * src, int * dst, int width, int height, int tile_w, int tile_h, const int radio, const pointFunction_t pPointOperation)
+__device__ void FilterStep2K(unsigned char * src, unsigned char * dst, int width, int height, int tile_w, int tile_h, const int radio, const pointFunction_t pPointOperation)
 {
-    extern __shared__ int smem[];
+    extern __shared__ unsigned char smem[];
 
     int tx = threadIdx.x;
     int ty = threadIdx.y;
@@ -22,7 +26,7 @@ __device__ void FilterStep2K(int * src, int * dst, int width, int height, int ti
     int x = bx * tile_w + tx;
     int y = by * tile_h + ty - radio;
 
-    smem[ty * blockDim.x + tx] = 255;
+    smem[ty * blockDim.x + tx] = 0;
     __syncthreads();
     if (x >= width || y < 0 || y >= height)
 	{
@@ -34,8 +38,8 @@ __device__ void FilterStep2K(int * src, int * dst, int width, int height, int ti
 	{
         return;
     }
-    int * smem_thread = &smem[(ty - radio) * blockDim.x + tx];
-    int val = smem_thread[0];
+	unsigned char * smem_thread = &smem[(ty - radio) * blockDim.x + tx];
+	unsigned char val = smem_thread[0];
 #pragma unroll
     for (int yy = 1; yy <= 2 * radio; yy++)
 	{
@@ -44,16 +48,16 @@ __device__ void FilterStep2K(int * src, int * dst, int width, int height, int ti
     dst[y * width + x] = val;
 }
 
-__device__ void FilterStep1K(int * src, int * dst, int width, int height, int tile_w, int tile_h, const int radio, const pointFunction_t pPointOperation)
+__device__ void FilterStep1K(unsigned char * src, unsigned char * dst, int width, int height, int tile_w, int tile_h, const int radio, const pointFunction_t pPointOperation)
 {
-    extern __shared__ int smem[];
+    extern __shared__ unsigned char smem[];
     int tx = threadIdx.x;
     int ty = threadIdx.y;
     int bx = blockIdx.x;
     int by = blockIdx.y;
     int x = bx * tile_w + tx - radio;
     int y = by * tile_h + ty;
-    smem[ty * blockDim.x + tx] = 255;
+    smem[ty * blockDim.x + tx] = 0;
     __syncthreads();
     if (x < 0 || x >= width || y >= height)
 	{
@@ -65,8 +69,8 @@ __device__ void FilterStep1K(int * src, int * dst, int width, int height, int ti
 	{
         return;
     }
-    int * smem_thread = &smem[ty * blockDim.x + tx - radio];
-    int val = smem_thread[0];
+    unsigned char* smem_thread = &smem[ty * blockDim.x + tx - radio];
+    unsigned char val = smem_thread[0];
 #pragma unroll
     for (int xx = 1; xx <= 2 * radio; xx++)
 	{
@@ -75,17 +79,17 @@ __device__ void FilterStep1K(int * src, int * dst, int width, int height, int ti
     dst[y * width + x] = val;
 }
 
-__global__ void FilterStep1(int * src, int * dst, int width, int height, int tile_w, int tile_h, const int radio)
+__global__ void FilterStep1(unsigned char * src, unsigned char * dst, int width, int height, int tile_w, int tile_h, const int radio)
 {
     FilterStep1K(src, dst, width, height, tile_w, tile_h, radio, pComputeMin);
 }
 
-__global__ void FilterStep2(int * src, int * dst, int width, int height, int tile_w, int tile_h, const int radio)
+__global__ void FilterStep2(unsigned char * src, unsigned char * dst, int width, int height, int tile_w, int tile_h, const int radio)
 {
     FilterStep2K(src, dst, width, height, tile_w, tile_h, radio, pComputeMin);
 }
 
-void Filter(int* src, int* dst, int* temp, int width, int height, int radio)
+void Filter(unsigned char* src, unsigned char* dst, unsigned char* temp, int width, int height, int radio)
 {
 	// the host-side function pointer to your __device__ function
 	// pointFunction_t h_pointFunction;
@@ -105,17 +109,17 @@ void Filter(int* src, int* dst, int* temp, int width, int height, int radio)
 	cudaError_t cudaerr = cudaDeviceSynchronize();
 }
 
-__global__ void FilterDStep1(int * src, int * dst, int width, int height, int tile_w, int tile_h, const int radio)
+__global__ void FilterDStep1(unsigned char * src, unsigned char * dst, int width, int height, int tile_w, int tile_h, const int radio)
 {
     FilterStep1K(src, dst, width, height, tile_w, tile_h, radio, pComputeMax);
 }
 
-__global__ void FilterDStep2(int * src, int * dst, int width, int height, int tile_w, int tile_h, const int radio)
+__global__ void FilterDStep2(unsigned char * src, unsigned char * dst, int width, int height, int tile_w, int tile_h, const int radio)
 {
     FilterStep2K(src, dst, width, height, tile_w, tile_h, radio, pComputeMax);
 }
 
-void FilterDilation(int* src, int* dst, int* temp, int width, int height, int radio)
+void FilterDilation(unsigned char* src, unsigned char* dst, unsigned char* temp, int width, int height, int radio)
 {
 	// //the host-side function pointer to your __device__ function
 	// pointFunction_t h_pointFunction;
@@ -135,9 +139,9 @@ void FilterDilation(int* src, int* dst, int* temp, int width, int height, int ra
 	dim3 block3(tile_w2, tile_h2 + (2 * radio));
 	dim3 grid3(ceil((float)width / tile_w2), ceil((float)height / tile_h2));
 
-	FilterDStep1<<<grid2,block2,block2.y * block2.x * sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1, radio);
+	FilterDStep1<<<grid2,block2,block2.y * block2.x>>>(src, temp, width, height, tile_w1, tile_h1, radio);
 	(cudaDeviceSynchronize());
-	FilterDStep2<<<grid3,block3,block3.y * block3.x * sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2, radio);
+	FilterDStep2<<<grid3,block3,block3.y * block3.x>>>(temp, dst, width, height, tile_w2, tile_h2, radio);
 
 	cudaError_t cudaerr = cudaDeviceSynchronize();
 }
