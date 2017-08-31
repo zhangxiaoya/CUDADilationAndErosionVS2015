@@ -14,19 +14,19 @@ unsigned char ucMin(unsigned char a, unsigned char b)
 	return (a < b) ? a : b;
 }
 
-void erosionCPU(int* src, int* dst, int width, int height, int radio)
+void erosionCPU(unsigned char* src, unsigned char* dst, int width, int height, int radio)
 {
-	auto tmp = new int[width * height];
+	auto tmp = new unsigned char[width * height];
 	for (auto i = 0; i < height; i++)
 	{
 		for (auto j = 0; j < width; j++)
 		{
 			int start_j = imax(0, j - radio);
 			int end_j = imin(width - 1, j + radio);
-			auto value = std::numeric_limits<int>::max();
+			auto value = std::numeric_limits<unsigned char>::max();
 			for (auto jj = start_j; jj <= end_j; jj++)
 			{
-				value = imin(src[i * width + jj], value);
+				value = ucMin(src[i * width + jj], value);
 			}
 			tmp[i * width + j] = value;
 		}
@@ -37,10 +37,10 @@ void erosionCPU(int* src, int* dst, int width, int height, int radio)
 		{
 			int start_i = imax(0, i - radio);
 			int end_i = imin(height - 1, i + radio);
-			auto value = std::numeric_limits<int>::max();
+			auto value = std::numeric_limits<unsigned char>::max();
 			for (auto ii = start_i; ii <= end_i; ii++)
 			{
-				value = imin(tmp[ii * width + j], value);
+				value = ucMin(tmp[ii * width + j], value);
 			}
 			dst[i * width + j] = value;
 		}

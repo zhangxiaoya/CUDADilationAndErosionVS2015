@@ -14,6 +14,7 @@ unsigned char pComputeMax(unsigned char a, unsigned char b)
 	return (a > b) ? a : b;
 }
 
+template<const unsigned char boundaryValue>
 __device__ void FilterStep2K(unsigned char * src, unsigned char * dst, int width, int height, int tile_w, int tile_h, const int radio, const pointFunction_t pPointOperation)
 {
     extern __shared__ unsigned char smem[];
@@ -26,7 +27,7 @@ __device__ void FilterStep2K(unsigned char * src, unsigned char * dst, int width
     int x = bx * tile_w + tx;
     int y = by * tile_h + ty - radio;
 
-    smem[ty * blockDim.x + tx] = 0;
+    smem[ty * blockDim.x + tx] = boundaryValue;
     __syncthreads();
     if (x >= width || y < 0 || y >= height)
 	{
@@ -48,6 +49,7 @@ __device__ void FilterStep2K(unsigned char * src, unsigned char * dst, int width
     dst[y * width + x] = val;
 }
 
+template<const unsigned char boundaryValue>
 __device__ void FilterStep1K(unsigned char * src, unsigned char * dst, int width, int height, int tile_w, int tile_h, const int radio, const pointFunction_t pPointOperation)
 {
     extern __shared__ unsigned char smem[];
@@ -57,7 +59,7 @@ __device__ void FilterStep1K(unsigned char * src, unsigned char * dst, int width
     int by = blockIdx.y;
     int x = bx * tile_w + tx - radio;
     int y = by * tile_h + ty;
-    smem[ty * blockDim.x + tx] = 0;
+    smem[ty * blockDim.x + tx] = boundaryValue;
     __syncthreads();
     if (x < 0 || x >= width || y >= height)
 	{
@@ -81,12 +83,12 @@ __device__ void FilterStep1K(unsigned char * src, unsigned char * dst, int width
 
 __global__ void FilterStep1(unsigned char * src, unsigned char * dst, int width, int height, int tile_w, int tile_h, const int radio)
 {
-    FilterStep1K(src, dst, width, height, tile_w, tile_h, radio, pComputeMin);
+    FilterStep1K<255>(src, dst, width, height, tile_w, tile_h, radio, pComputeMin);
 }
 
 __global__ void FilterStep2(unsigned char * src, unsigned char * dst, int width, int height, int tile_w, int tile_h, const int radio)
 {
-    FilterStep2K(src, dst, width, height, tile_w, tile_h, radio, pComputeMin);
+    FilterStep2K<255>(src, dst, width, height, tile_w, tile_h, radio, pComputeMin);
 }
 
 void Filter(unsigned char* src, unsigned char* dst, unsigned char* temp, int width, int height, int radio)
@@ -111,12 +113,12 @@ void Filter(unsigned char* src, unsigned char* dst, unsigned char* temp, int wid
 
 __global__ void FilterDStep1(unsigned char * src, unsigned char * dst, int width, int height, int tile_w, int tile_h, const int radio)
 {
-    FilterStep1K(src, dst, width, height, tile_w, tile_h, radio, pComputeMax);
+    FilterStep1K<0>(src, dst, width, height, tile_w, tile_h, radio, pComputeMax);
 }
 
 __global__ void FilterDStep2(unsigned char * src, unsigned char * dst, int width, int height, int tile_w, int tile_h, const int radio)
 {
-    FilterStep2K(src, dst, width, height, tile_w, tile_h, radio, pComputeMax);
+    FilterStep2K<0>(src, dst, width, height, tile_w, tile_h, radio, pComputeMax);
 }
 
 void FilterDilation(unsigned char* src, unsigned char* dst, unsigned char* temp, int width, int height, int radio)
