@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CudaCompile Include="erosionFuncTemplate.cu" />
+    <CudaCompile Include="Erosion\erosion.cu">
+      <Filter>Erosion</Filter>
+    </CudaCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="Erosion\erosionCPU.cpp">
+      <Filter>Erosion</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="erosionFuncTemplate.h" />
+    <ClInclude Include="Erosion\erosionCPU.h">
+      <Filter>Erosion</Filter>
+    </ClInclude>
+    <ClInclude Include="Erosion\erosion.h">
+      <Filter>Erosion</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Erosion">
+      <UniqueIdentifier>{4ece41fc-3cee-4df0-9df3-455d51f5c894}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Dilation">
+      <UniqueIdentifier>{c320eb7f-5cf0-40db-96de-bd7126a090f8}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

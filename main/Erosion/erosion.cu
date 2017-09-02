@@ -55,12 +55,12 @@ __global__ void NaiveErosionKernel(unsigned char* src, unsigned char* dst, int w
 	dst[y * width + x] = value;
 }
 
-void NaiveErosion(unsigned char* src, unsigned char* dst, int width, int height, int radio)
+void NaiveErosion(uint8_t* src, uint8_t* dst, int width, int height, int radio)
 {
 	dim3 block(32, 32);
-	dim3 grid(ceil((float)width / block.x), ceil((float)height / block.y));
+	dim3 grid(ceil(static_cast<float>(width) / block.x), ceil(static_cast<float>(height) / block.y));
 	NaiveErosionKernel<<<grid,block>>>(src, dst, width, height, radio);
-	cudaError_t cudaerr = cudaDeviceSynchronize();
+	auto cudaerr = cudaDeviceSynchronize();
 }
 
 /**
@@ -74,12 +74,12 @@ __global__ void ErosionStep2(unsigned char* src, unsigned char* dst, int width, 
 	{
 		return;
 	}
-	unsigned int start_i = max(y - radio, 0);
-	unsigned int end_i = min(height - 1, y + radio);
+	unsigned int start_i = IMAX(y - radio, 0);
+	unsigned int end_i = IMIN(height - 1, y + radio);
 	unsigned char value = 255;
 	for (int i = start_i; i <= end_i; i++)
 	{
-		value = min(value, src[i * width + x]);
+		value = IMIN(value, src[i * width + x]);
 	}
 	dst[y * width + x] = value;
 }
@@ -92,12 +92,12 @@ __global__ void ErosionStep1(unsigned char* src, unsigned char * dst, int width,
 	{
 		return;
 	}
-	unsigned int start_j = max(x - radio, 0);
-	unsigned int end_j = min(width - 1, x + radio);
+	unsigned int start_j = IMAX(x - radio, 0);
+	unsigned int end_j = IMIN(width - 1, x + radio);
 	unsigned char value = 255;
 	for (int j = start_j; j <= end_j; j++)
 	{
-		value = min(value, src[y * width + j]);
+		value = IMIN(value, src[y * width + j]);
 	}
 	dst[y * width + x] = value;
 }

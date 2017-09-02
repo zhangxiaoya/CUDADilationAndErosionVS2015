@@ -5,8 +5,8 @@
 #include <ctime>
 
 #include "erosionFuncTemplate.h"
-#include "erosionCPU.h"
-#include "erosion.h"
+#include "Erosion/erosion.h"
+#include "Erosion/erosionCPU.h"
 
 const int Width = 320;
 const int Height = 256;
@@ -26,7 +26,6 @@ inline int CUDADeviceInit(int argc, const char** argv)
 
 	return 0;
 }
-
 
 void GenerateImage(uint8_t* image, int width, int height)
 {
