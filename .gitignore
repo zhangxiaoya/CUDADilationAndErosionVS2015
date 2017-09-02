@@ -6,6 +6,8 @@
 # png file
 *.png
 
+common/
+
 # User-specific files
 *.suo
 *.user
