@@ -1,8 +1,14 @@
-#pragma once
-void NaiveErosion(unsigned char* src, unsigned char* dst, int width, int height, int radio);
+#ifndef __EROSION_H__
+#define __EROSION_H__
 
-void ErosionTwoSteps(unsigned char* src, unsigned char* dst, unsigned char* temp, int width, int height, int radio);
+typedef unsigned char uint8_t;
 
-void ErosionTwoStepsShared(unsigned char* src, unsigned char* dst, unsigned char* temp, int width, int height, int radio);
+void NaiveErosion(uint8_t* src, uint8_t* dst, int width, int height, int radio);
 
-void ErosionTemplateSharedTwoSteps(unsigned char* src, unsigned char* dst, unsigned char* temp, int width, int height, int radio);
+void ErosionTwoSteps(uint8_t* src, uint8_t* dst, uint8_t* temp, int width, int height, int radio);
+
+void ErosionTwoStepsShared(uint8_t* src, uint8_t* dst, uint8_t* temp, int width, int height, int radio);
+
+void ErosionTemplateSharedTwoSteps(uint8_t* src, uint8_t* dst, uint8_t* temp, int width, int height, int radio);
+
+#endif
