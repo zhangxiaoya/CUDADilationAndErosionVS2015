@@ -4,7 +4,7 @@
 #include <chrono>
 #include <ctime>
 
-#include "erosionFuncTemplate.h"
+#include "erosionMore.h"
 #include "Erosion/erosion.h"
 #include "Erosion/erosionCPU.h"
 
@@ -63,12 +63,12 @@ void CalculateDilatedImageOnHost(uint8_t* himage_src, uint8_t* himage_dst, int r
 	std::cout << "Dilation CPU: " << elapsed_seconds.count() << "s\n";
 }
 
-void CalculateDilatedImageOnDevice(uint8_t* dimage_src, uint8_t* dimage_dst, uint8_t* dimage_tmp, uint8_t* himage_src, uint8_t* himage_tmp, int radio)
+void CalculateDilatedImageOnDeviceUseFilter(uint8_t* dimage_src, uint8_t* dimage_dst, uint8_t* dimage_tmp, uint8_t* himage_src, uint8_t* himage_tmp, int radio)
 {
 	auto start = std::chrono::system_clock::now();
 	cudaMemcpy(dimage_src, himage_src, Width * Height, cudaMemcpyHostToDevice);
 
-	FilterDilation(dimage_src, dimage_dst, dimage_tmp, Width, Height, radio);
+	DilationFilter(dimage_src, dimage_dst, dimage_tmp, Width, Height, radio);
 
 	cudaMemcpy(himage_tmp, dimage_dst, Width * Height , cudaMemcpyDeviceToHost);
 	auto end = std::chrono::system_clock::now();
@@ -115,12 +115,12 @@ void CalculateErodedImageOnDeviceErosionTwoSteps(uint8_t* dimage_src, uint8_t* d
 	std::cout << "GPU two steps erosion: " << elapsed_seconds.count() << "s\n";
 }
 
-void CalculateErodedImageOnDeviceErosionTwoStepsShared(uint8_t* dimage_src, uint8_t* dimage_dst, uint8_t* dimage_tmp, uint8_t* himage_src, uint8_t* himage_tmp, int radio)
+void CalculateErodedImageOnDeviceErosionTwoStepsSharedMemory(uint8_t* dimage_src, uint8_t* dimage_dst, uint8_t* dimage_tmp, uint8_t* himage_src, uint8_t* himage_tmp, int radio)
 {
 	auto start = std::chrono::system_clock::now();
 	cudaMemcpy(dimage_src, himage_src, Width * Height, cudaMemcpyHostToDevice);
 
-	ErosionTwoStepsShared(dimage_src, dimage_dst, dimage_tmp, Width, Height, radio);
+	ErosionTwoStepsSharedMemory(dimage_src, dimage_dst, dimage_tmp, Width, Height, radio);
 
 	cudaMemcpy(himage_tmp, dimage_dst, Width * Height, cudaMemcpyDeviceToHost);
 	auto end = std::chrono::system_clock::now();
@@ -129,12 +129,12 @@ void CalculateErodedImageOnDeviceErosionTwoStepsShared(uint8_t* dimage_src, uint
 	std::cout << "GPU two steps shared erosion: " << elapsed_seconds.count() << "s\n";
 }
 
-void CalculateErodedImageOnDeviceErosionTemplateSharedTwoSteps(uint8_t* dimage_src, uint8_t* dimage_dst, uint8_t* dimage_tmp, uint8_t* himage_src, uint8_t* himage_tmp, int radio)
+void CalculateErodedImageOnDeviceErosionTemplateSharedTwoStepsMemory(uint8_t* dimage_src, uint8_t* dimage_dst, uint8_t* dimage_tmp, uint8_t* himage_src, uint8_t* himage_tmp, int radio)
 {
 	auto start = std::chrono::system_clock::now();
 	cudaMemcpy(dimage_src, himage_src, Width * Height, cudaMemcpyHostToDevice);
 
-	ErosionTemplateSharedTwoSteps(dimage_src, dimage_dst, dimage_tmp, Width, Height, radio);
+	ErosionTemplateTwoStepsSharedmemory(dimage_src, dimage_dst, dimage_tmp, Width, Height, radio);
 
 	cudaMemcpy(himage_tmp, dimage_dst, Width * Height, cudaMemcpyDeviceToHost);
 	auto end = std::chrono::system_clock::now();
@@ -143,18 +143,18 @@ void CalculateErodedImageOnDeviceErosionTemplateSharedTwoSteps(uint8_t* dimage_s
 	std::cout << "GPU two steps shared template erosion: " << elapsed_seconds.count() << "s\n";
 }
 
-void CalculateErodedImageOnDeviceFilter(uint8_t* dimage_src, uint8_t* dimage_dst, uint8_t* dimage_tmp, uint8_t* himage_src, uint8_t* himage_tmp, int radio)
+void CalculateErodedImageOnDeviceUseFilter(uint8_t* dimage_src, uint8_t* dimage_dst, uint8_t* dimage_tmp, uint8_t* himage_src, uint8_t* himage_tmp, int radio)
 {
 	auto start = std::chrono::system_clock::now();
 	cudaMemcpy(dimage_src, himage_src, Width * Height * sizeof(int), cudaMemcpyHostToDevice);
 
-	Filter(dimage_src, dimage_dst, dimage_tmp, Width, Height, radio);
+	ErosionFilter(dimage_src, dimage_dst, dimage_tmp, Width, Height, radio);
 
 	cudaMemcpy(himage_tmp, dimage_dst, Width * Height * sizeof(int), cudaMemcpyDeviceToHost);
 	auto end = std::chrono::system_clock::now();
 
 	std::chrono::duration<double> elapsed_seconds = end - start;
-	std::cout << "GPU two steps shared template erosion with a function templated: " << elapsed_seconds.count() << "s\n";
+	std::cout << "GPU two steps shared memory erosion filter with a function templated: " << elapsed_seconds.count() << "s\n";
 }
 
 int main(int argc, char* argv[])
@@ -189,18 +189,18 @@ int main(int argc, char* argv[])
 		CalculateErodedImageOnDeviceErosionTwoSteps(dimage_src, dimage_dst, dimage_tmp, himage_src, himage_tmp, radio);
 		CheckDiff(himage_dst, himage_tmp, Width, Height);
 
-		CalculateErodedImageOnDeviceErosionTwoStepsShared(dimage_src, dimage_dst, dimage_tmp, himage_src, himage_tmp, radio);
+		CalculateErodedImageOnDeviceErosionTwoStepsSharedMemory(dimage_src, dimage_dst, dimage_tmp, himage_src, himage_tmp, radio);
 		CheckDiff(himage_dst, himage_tmp, Width, Height);
 
-		CalculateErodedImageOnDeviceErosionTemplateSharedTwoSteps(dimage_src, dimage_dst, dimage_tmp, himage_src, himage_tmp, radio);
+		CalculateErodedImageOnDeviceErosionTemplateSharedTwoStepsMemory(dimage_src, dimage_dst, dimage_tmp, himage_src, himage_tmp, radio);
 		CheckDiff(himage_dst, himage_tmp, Width, Height);
 
-		CalculateErodedImageOnDeviceFilter(dimage_src, dimage_dst, dimage_tmp, himage_src, himage_tmp, radio);
+		CalculateErodedImageOnDeviceUseFilter(dimage_src, dimage_dst, dimage_tmp, himage_src, himage_tmp, radio);
 		CheckDiff(himage_dst, himage_tmp, Width, Height);
 
 		CalculateDilatedImageOnHost(himage_src, himage_dst, radio);
 
-		CalculateDilatedImageOnDevice(dimage_src, dimage_dst, dimage_tmp, himage_src, himage_tmp, radio);
+		CalculateDilatedImageOnDeviceUseFilter(dimage_src, dimage_dst, dimage_tmp, himage_src, himage_tmp, radio);
 		CheckDiff(himage_dst, himage_tmp, Width, Height);
 	}
 

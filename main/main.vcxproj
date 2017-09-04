@@ -19,11 +19,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="erosionFuncTemplate.cu" />
+    <CudaCompile Include="erosionMore.cu" />
     <CudaCompile Include="Erosion\erosion.cu" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="erosionFuncTemplate.h" />
+    <ClInclude Include="erosionMore.h" />
     <ClInclude Include="Erosion\erosion.h" />
     <ClInclude Include="Erosion\erosionCPU.h" />
   </ItemGroup>

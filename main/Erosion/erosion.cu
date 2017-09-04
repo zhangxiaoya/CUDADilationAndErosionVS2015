@@ -31,28 +31,28 @@ __device__ unsigned char UCMAX(unsigned char a, unsigned char b)
  */
 __global__ void NaiveErosionKernel(unsigned char* src, unsigned char* dst, int width, int height, int radio)
 {
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	int colCount = blockIdx.x * blockDim.x + threadIdx.x;
+	int rowCount = blockIdx.y * blockDim.y + threadIdx.y;
 
-	if (y >= height || x >= width)
+	if (rowCount >= height || colCount >= width)
 	{
 		return;
 	}
-	unsigned int start_i = IMAX(y - radio, 0);
-	unsigned int end_i = IMIN(height - 1, y + radio);
-	unsigned int start_j = IMAX(x - radio, 0);
-	unsigned int end_j = IMIN(width - 1, x + radio);
+	unsigned int startRow = IMAX(rowCount - radio, 0);
+	unsigned int endRow = IMIN(height - 1, rowCount + radio);
+	unsigned int startCol = IMAX(colCount - radio, 0);
+	unsigned int endCol = IMIN(width - 1, colCount + radio);
 
-	unsigned char value = 255;
+	unsigned char minValue = 255;
 
-	for (int i = start_i; i <= end_i; i++)
+	for (int r = startRow; r <= endRow; r++)
 	{
-		for (int j = start_j; j <= end_j; j++)
+		for (int c = startCol; c <= endCol; c++)
 		{
-			value = UCMIN(value, src[i * width + j]);
+			minValue = UCMIN(minValue, src[r * width + c]);
 		}
 	}
-	dst[y * width + x] = value;
+	dst[rowCount * width + colCount] = minValue;
 }
 
 void NaiveErosion(uint8_t* src, uint8_t* dst, int width, int height, int radio)
@@ -66,49 +66,51 @@ void NaiveErosion(uint8_t* src, uint8_t* dst, int width, int height, int radio)
 /**
  * Two steps erosion using separable filters
  */
-__global__ void ErosionStep2(unsigned char* src, unsigned char* dst, int width, int height, int radio)
+__global__ void ErosionForEachCol(unsigned char* src, unsigned char* dst, int width, int height, int radio)
 {
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
-	if (y >= height || x >= width)
+	int colCount = blockIdx.x * blockDim.x + threadIdx.x;
+	int rowCount = blockIdx.y * blockDim.y + threadIdx.y;
+	if (rowCount >= height || colCount >= width)
 	{
 		return;
 	}
-	unsigned int start_i = IMAX(y - radio, 0);
-	unsigned int end_i = IMIN(height - 1, y + radio);
-	unsigned char value = 255;
-	for (int i = start_i; i <= end_i; i++)
+	unsigned int startRow = IMAX(rowCount - radio, 0);
+	unsigned int endRow = IMIN(height - 1, rowCount + radio);
+	unsigned char minValue = 255;
+
+	for (int row = startRow; row <= endRow; row++)
 	{
-		value = IMIN(value, src[i * width + x]);
+		minValue = IMIN(minValue, src[row * width + colCount]);
 	}
-	dst[y * width + x] = value;
+	dst[rowCount * width + colCount] = minValue;
 }
 
-__global__ void ErosionStep1(unsigned char* src, unsigned char * dst, int width, int height, int radio)
+__global__ void ErosionFowEachRow(unsigned char* src, unsigned char * dst, int width, int height, int radio)
 {
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
-	if (y >= height || x >= width)
+	int colCount = blockIdx.x * blockDim.x + threadIdx.x;
+	int rowCount = blockIdx.y * blockDim.y + threadIdx.y;
+	if (rowCount >= height || colCount >= width)
 	{
 		return;
 	}
-	unsigned int start_j = IMAX(x - radio, 0);
-	unsigned int end_j = IMIN(width - 1, x + radio);
-	unsigned char value = 255;
-	for (int j = start_j; j <= end_j; j++)
+	unsigned int startCol = IMAX(colCount - radio, 0);
+	unsigned int endCol = IMIN(width - 1, colCount + radio);
+	unsigned char minValue = 255;
+
+	for (int col = startCol; col <= endCol; col++)
 	{
-		value = IMIN(value, src[y * width + j]);
+		minValue = IMIN(minValue, src[rowCount * width + col]);
 	}
-	dst[y * width + x] = value;
+	dst[rowCount * width + colCount] = minValue;
 }
 
 void ErosionTwoSteps(unsigned char * src, unsigned char * dst, unsigned char * temp, int width, int height, int radio)
 {
 	dim3 block(16, 16);
-	dim3 grid(ceil((float)width / block.x), ceil((float)height / block.y));
-	ErosionStep1<<<grid,block>>>(src, temp, width, height, radio);
-	cudaError_t cudaerr = cudaDeviceSynchronize();
-	ErosionStep2<<<grid,block>>>(temp, dst, width, height, radio);
+	dim3 grid(ceil(static_cast<float>(width) / block.x), ceil(static_cast<float>(height) / block.y));
+	ErosionFowEachRow<<<grid,block>>>(src, temp, width, height, radio);
+	auto cudaerr = cudaDeviceSynchronize();
+	ErosionForEachCol<<<grid,block>>>(temp, dst, width, height, radio);
 	cudaerr = cudaDeviceSynchronize();
 }
 
@@ -116,15 +118,15 @@ void ErosionTwoSteps(unsigned char * src, unsigned char * dst, unsigned char * t
 /**
  * Two steps erosion using separable filters with shared memory.
  */
-__global__ void ErosionSharedStep2(unsigned char * src, unsigned char *src_src, unsigned char * dst, int radio, int width, int height, int tile_w, int tile_h)
+__global__ void ErosionSharedMemoryForEachCol(unsigned char * src, unsigned char * dst, int radio, int width, int height, int tile_w, int tile_h)
 {
 	extern __shared__ unsigned char smem[];
 	int tx = threadIdx.x;
 	int ty = threadIdx.y;
 	int bx = blockIdx.x;
 	int by = blockIdx.y;
-	int x = bx * tile_w + tx;
-	int y = by * tile_h + ty - radio;
+	auto x = bx * tile_w + tx;
+	auto y = by * tile_h + ty - radio;
 	smem[ty * blockDim.x + tx] = 255;
 	__syncthreads();
 	if (x >= width || y < 0 || y >= height)
@@ -137,24 +139,24 @@ __global__ void ErosionSharedStep2(unsigned char * src, unsigned char *src_src, 
 	{
 		return;
 	}
-	unsigned char * smem_thread = &smem[(ty - radio) * blockDim.x + tx];
-	unsigned char val = smem_thread[0];
-	for (int yy = 1; yy <= 2 * radio; yy++)
+	auto smem_thread = &smem[(ty - radio) * blockDim.x + tx];
+	auto val = smem_thread[0];
+	for (auto yy = 1; yy <= 2 * radio; yy++)
 	{
-		val = min(val, smem_thread[yy * blockDim.x]);
+		val = UCMIN(val, smem_thread[yy * blockDim.x]);
 	}
 	dst[y * width + x] = val;
 }
 
-__global__ void ErosionSharedStep1(unsigned char * src, unsigned char * dst, int radio, int width, int height, int tile_w, int tile_h)
+__global__ void ErosionSharedMemoryForEachRow(unsigned char * src, unsigned char * dst, int radio, int width, int height, int tile_w, int tile_h)
 {
 	extern __shared__ unsigned char smem[];
 	int tx = threadIdx.x;
 	int ty = threadIdx.y;
 	int bx = blockIdx.x;
 	int by = blockIdx.y;
-	int x = bx * tile_w + tx - radio;
-	int y = by * tile_h + ty;
+	auto x = bx * tile_w + tx - radio;
+	auto y = by * tile_h + ty;
 	smem[ty * blockDim.x + tx] = 255;
 	__syncthreads();
 	if (x < 0 || x >= width || y >= height)
@@ -167,40 +169,41 @@ __global__ void ErosionSharedStep1(unsigned char * src, unsigned char * dst, int
 	{
 		return;
 	}
-	unsigned char* smem_thread = &smem[ty * blockDim.x + tx - radio];
-	unsigned char val = smem_thread[0];
-	for (int xx = 1; xx <= 2 * radio; xx++)
+	auto smem_thread = &smem[ty * blockDim.x + tx - radio];
+	auto val = smem_thread[0];
+	for (auto xx = 1; xx <= 2 * radio; xx++)
 	{
-		val = min(val, smem_thread[xx]);
+		val = UCMIN(val, smem_thread[xx]);
 	}
 	dst[y * width + x] = val;
 }
 
-void ErosionTwoStepsShared(unsigned char * src, unsigned char* dst, unsigned char * temp, int width, int height, int radio)
+void ErosionTwoStepsSharedMemory(unsigned char * src, unsigned char* dst, unsigned char * temp, int width, int height, int radio)
 {
-	int tile_w = 640;
-	int tile_h = 1;
+	auto tile_w = 640;
+	auto tile_h = 1;
 	dim3 block2(tile_w + (2 * radio), tile_h);
-	dim3 grid2(ceil((float)width / tile_w), ceil((float)height / tile_h));
-	ErosionSharedStep1<<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, radio, width, height, tile_w, tile_h);
-	cudaError_t cudaerr = cudaDeviceSynchronize();
+	dim3 grid2(ceil(static_cast<float>(width) / tile_w), ceil(static_cast<float>(height) / tile_h));
+	ErosionSharedMemoryForEachRow<<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, radio, width, height, tile_w, tile_h);
+	auto cudaerr = cudaDeviceSynchronize();
+
 	tile_w = 8;
 	tile_h = 64;
 	dim3 block3(tile_w, tile_h + (2 * radio));
-	dim3 grid3(ceil((float)width / tile_w), ceil((float)height / tile_h));
-	ErosionSharedStep2<<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, dst, radio, width, height, tile_w, tile_h);
+	dim3 grid3(ceil(static_cast<float>(width) / tile_w), ceil(static_cast<float>(height) / tile_h));
+	ErosionSharedMemoryForEachCol<<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, radio, width, height, tile_w, tile_h);
 	cudaerr = cudaDeviceSynchronize();
 }
 
-template<const int radio> __global__ void ErosionTemplateSharedStep2(unsigned char * src, unsigned char * dst, int width, int height, int tile_w, int tile_h)
+template<const int radio> __global__ void ErosionTemplateSharedForEachCol(unsigned char * src, unsigned char * dst, int width, int height, int tile_w, int tile_h)
 {
 	extern __shared__ unsigned char smem[];
 	int tx = threadIdx.x;
 	int ty = threadIdx.y;
 	int bx = blockIdx.x;
 	int by = blockIdx.y;
-	int x = bx * tile_w + tx;
-	int y = by * tile_h + ty - radio;
+	auto x = bx * tile_w + tx;
+	auto y = by * tile_h + ty - radio;
 	smem[ty * blockDim.x + tx] = 255;
 	__syncthreads();
 	if (x >= width || y < 0 || y >= height)
@@ -213,25 +216,25 @@ template<const int radio> __global__ void ErosionTemplateSharedStep2(unsigned ch
 	{
 		return;
 	}
-	unsigned char * smem_thread = &smem[(ty - radio) * blockDim.x + tx];
+	auto smem_thread = &smem[(ty - radio) * blockDim.x + tx];
 	unsigned char val = smem_thread[0];
 #pragma unroll
-	for (int yy = 1; yy <= 2 * radio; yy++)
+	for (auto yy = 1; yy <= 2 * radio; yy++)
 	{
-		val = min(val, smem_thread[yy * blockDim.x]);
+		val = UCMIN(val, smem_thread[yy * blockDim.x]);
 	}
 	dst[y * width + x] = val;
 }
 
-template<const int radio> __global__ void ErosionTemplateSharedStep1(unsigned char * src, unsigned char * dst, int width, int height, int tile_w, int tile_h)
+template<const int radio> __global__ void ErosionTemplateSharedForEachRow(unsigned char * src, unsigned char * dst, int width, int height, int tile_w, int tile_h)
 {
 	extern __shared__ unsigned char smem[];
 	int tx = threadIdx.x;
 	int ty = threadIdx.y;
 	int bx = blockIdx.x;
 	int by = blockIdx.y;
-	int x = bx * tile_w + tx - radio;
-	int y = by * tile_h + ty;
+	auto x = bx * tile_w + tx - radio;
+	auto y = by * tile_h + ty;
 	smem[ty * blockDim.x + tx] = 255;
 	__syncthreads();
 	if (x < 0 || x >= width || y >= height)
@@ -244,100 +247,104 @@ template<const int radio> __global__ void ErosionTemplateSharedStep1(unsigned ch
 	{
 		return;
 	}
-	unsigned char * smem_thread = &smem[ty * blockDim.x + tx - radio];
+	auto smem_thread = &smem[ty * blockDim.x + tx - radio];
 	unsigned char val = smem_thread[0];
 #pragma unroll
-	for (int xx = 1; xx <= 2 * radio; xx++)
+	for (auto xx = 1; xx <= 2 * radio; xx++)
 	{
-		val = min(val, smem_thread[xx]);
+		val = UCMIN(val, smem_thread[xx]);
 	}
 	dst[y * width + x] = val;
 }
 
-void ErosionTemplateSharedTwoSteps(unsigned char * src, unsigned char * dst, unsigned char * temp, int width, int height, int radio)
+void ErosionTemplateTwoStepsSharedmemory(unsigned char * src, unsigned char * dst, unsigned char * temp, int width, int height, int radio)
 {
-	int tile_w1 = 256, tile_h1 = 1;
+	auto tile_w1 = 256, tile_h1 = 1;
 	dim3 block2(tile_w1 + (2 * radio), tile_h1);
-	dim3 grid2(ceil((float)width / tile_w1), ceil((float)height / tile_h1));
-	int tile_w2 = 4, tile_h2 = 64;
+	dim3 grid2(ceil(static_cast<float>(width) / tile_w1), ceil(static_cast<float>(height) / tile_h1));
+
+	auto tile_w2 = 4, tile_h2 = 64;
 	dim3 block3(tile_w2, tile_h2 + (2 * radio));
-	dim3 grid3(ceil((float)width / tile_w2), ceil((float)height / tile_h2));
+	dim3 grid3(ceil(static_cast<float>(width) / tile_w2), ceil(static_cast<float>(height) / tile_h2));
+
 	switch (radio) {
 	case 1:
-		ErosionTemplateSharedStep1<1><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
+		ErosionTemplateSharedForEachRow<1><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
 		checkCudaErrors(cudaDeviceSynchronize());
-		ErosionTemplateSharedStep2<1><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+		ErosionTemplateSharedForEachCol<1><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
 		break;
 	case 2:
-		ErosionTemplateSharedStep1<2><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
+		ErosionTemplateSharedForEachRow<2><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
 		checkCudaErrors(cudaDeviceSynchronize());
-		ErosionTemplateSharedStep2<2><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+		ErosionTemplateSharedForEachCol<2><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
 		break;
 	case 3:
-		ErosionTemplateSharedStep1<3><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
+		ErosionTemplateSharedForEachRow<3><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
 		checkCudaErrors(cudaDeviceSynchronize());
-		ErosionTemplateSharedStep2<3><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+		ErosionTemplateSharedForEachCol<3><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
 		break;
 	case 4:
-		ErosionTemplateSharedStep1<4><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
+		ErosionTemplateSharedForEachRow<4><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
 		checkCudaErrors(cudaDeviceSynchronize());
-		ErosionTemplateSharedStep2<4><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+		ErosionTemplateSharedForEachCol<4><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
 		break;
 	case 5:
-		ErosionTemplateSharedStep1<5><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
+		ErosionTemplateSharedForEachRow<5><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
 		checkCudaErrors(cudaDeviceSynchronize());
-		ErosionTemplateSharedStep2<5><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+		ErosionTemplateSharedForEachCol<5><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
 		break;
 	case 6:
-		ErosionTemplateSharedStep1<6><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
+		ErosionTemplateSharedForEachRow<6><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
 		checkCudaErrors(cudaDeviceSynchronize());
-		ErosionTemplateSharedStep2<6><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+		ErosionTemplateSharedForEachCol<6><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
 		break;
 	case 7:
-		ErosionTemplateSharedStep1<7><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
+		ErosionTemplateSharedForEachRow<7><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
 		checkCudaErrors(cudaDeviceSynchronize());
-		ErosionTemplateSharedStep2<7><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+		ErosionTemplateSharedForEachCol<7><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
 		break;
 	case 8:
-		ErosionTemplateSharedStep1<8><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
+		ErosionTemplateSharedForEachRow<8><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
 		checkCudaErrors(cudaDeviceSynchronize());
-		ErosionTemplateSharedStep2<8><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+		ErosionTemplateSharedForEachCol<8><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
 		break;
 	case 9:
-		ErosionTemplateSharedStep1<9><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
+		ErosionTemplateSharedForEachRow<9><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
 		checkCudaErrors(cudaDeviceSynchronize());
-		ErosionTemplateSharedStep2<9><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+		ErosionTemplateSharedForEachCol<9><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
 		break;
 	case 10:
-		ErosionTemplateSharedStep1<10><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
+		ErosionTemplateSharedForEachRow<10><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
 		checkCudaErrors(cudaDeviceSynchronize());
-		ErosionTemplateSharedStep2<10><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+		ErosionTemplateSharedForEachCol<10><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
 		break;
 	case 11:
-		ErosionTemplateSharedStep1<11><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
+		ErosionTemplateSharedForEachRow<11><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
 		checkCudaErrors(cudaDeviceSynchronize());
-		ErosionTemplateSharedStep2<11><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+		ErosionTemplateSharedForEachCol<11><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
 		break;
 	case 12:
-		ErosionTemplateSharedStep1<12><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
+		ErosionTemplateSharedForEachRow<12><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
 		checkCudaErrors(cudaDeviceSynchronize());
-		ErosionTemplateSharedStep2<12><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+		ErosionTemplateSharedForEachCol<12><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
 		break;
 	case 13:
-		ErosionTemplateSharedStep1<13><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
+		ErosionTemplateSharedForEachRow<13><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
 		checkCudaErrors(cudaDeviceSynchronize());
-		ErosionTemplateSharedStep2<13><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+		ErosionTemplateSharedForEachCol<13><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
 		break;
 	case 14:
-		ErosionTemplateSharedStep1<14><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
+		ErosionTemplateSharedForEachRow<14><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
 		checkCudaErrors(cudaDeviceSynchronize());
-		ErosionTemplateSharedStep2<14><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+		ErosionTemplateSharedForEachCol<14><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
 		break;
 	case 15:
-		ErosionTemplateSharedStep1<15><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
+		ErosionTemplateSharedForEachRow<15><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
 		checkCudaErrors(cudaDeviceSynchronize());
-		ErosionTemplateSharedStep2<15><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+		ErosionTemplateSharedForEachCol<15><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
 		break;
+	default:
+		break;;
 	}
-	cudaError_t cudaerr = cudaDeviceSynchronize();
+	auto cudaerr = cudaDeviceSynchronize();
 }
