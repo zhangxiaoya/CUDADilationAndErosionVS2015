@@ -7,6 +7,7 @@
 #include "erosionMore.h"
 #include "Erosion/erosion.h"
 #include "Erosion/erosionCPU.h"
+#include "Dilation/dilation.h"
 
 const int Width = 320;
 const int Height = 256;
@@ -157,6 +158,62 @@ void CalculateErodedImageOnDeviceUseFilter(uint8_t* dimage_src, uint8_t* dimage_
 	std::cout << "GPU two steps shared memory erosion filter with a function templated: " << elapsed_seconds.count() << "s\n";
 }
 
+void CalculateDilatedImageOnDeviceNaiveDilation(uint8_t* dimage_src, uint8_t* dimage_dst, uint8_t* himage_src, uint8_t* himage_tmp, int radio)
+{
+	auto start = std::chrono::system_clock::now();
+	cudaMemcpy(dimage_src, himage_src, Width * Height, cudaMemcpyHostToDevice);
+
+	NaiveDilation(dimage_src, dimage_dst, Width, Height, radio);
+
+	cudaMemcpy(himage_tmp, dimage_dst, Width * Height, cudaMemcpyDeviceToHost);
+	auto end = std::chrono::system_clock::now();
+
+	std::chrono::duration<double> elapsed_seconds = end - start;
+	std::cout << "GPU Naive dilation: " << elapsed_seconds.count() << "s\n";
+}
+
+void CalculateDilatedImageOnDeviceDilationTwoSteps(uint8_t* dimage_src, uint8_t* dimage_dst, uint8_t* dimage_tmp, uint8_t* himage_src, uint8_t* himage_tmp, int radio)
+{
+	auto start = std::chrono::system_clock::now();
+	cudaMemcpy(dimage_src, himage_src, Width * Height, cudaMemcpyHostToDevice);
+
+	DilationTwoSteps(dimage_src, dimage_dst, dimage_tmp, Width, Height, radio);
+
+	cudaMemcpy(himage_tmp, dimage_dst, Width * Height, cudaMemcpyDeviceToHost);
+	auto end = std::chrono::system_clock::now();
+
+	std::chrono::duration<double> elapsed_seconds = end - start;
+	std::cout << "GPU two steps dilation: " << elapsed_seconds.count() << "s\n";
+}
+
+void CalculateDilatedImageOnDeviceDilationTwoStepsSharedMemory(uint8_t* dimage_src, uint8_t* dimage_dst, uint8_t* dimage_tmp, uint8_t* himage_src, uint8_t* himage_tmp, int radio)
+{
+	auto start = std::chrono::system_clock::now();
+	cudaMemcpy(dimage_src, himage_src, Width * Height, cudaMemcpyHostToDevice);
+
+	DilationTwoStepsSharedMemory(dimage_src, dimage_dst, dimage_tmp, Width, Height, radio);
+
+	cudaMemcpy(himage_tmp, dimage_dst, Width * Height, cudaMemcpyDeviceToHost);
+	auto end = std::chrono::system_clock::now();
+
+	std::chrono::duration<double> elapsed_seconds = end - start;
+	std::cout << "GPU two steps shared dilation: " << elapsed_seconds.count() << "s\n";
+}
+
+void CalculateDilatedImageOnDeviceDilationTemplateSharedTwoStepsMemory(uint8_t* dimage_src, uint8_t* dimage_dst, uint8_t* dimage_tmp, uint8_t* himage_src, uint8_t* himage_tmp, int radio)
+{
+	auto start = std::chrono::system_clock::now();
+	cudaMemcpy(dimage_src, himage_src, Width * Height, cudaMemcpyHostToDevice);
+
+	DilationTemplateTwoStepsSharedmemory(dimage_src, dimage_dst, dimage_tmp, Width, Height, radio);
+
+	cudaMemcpy(himage_tmp, dimage_dst, Width * Height, cudaMemcpyDeviceToHost);
+	auto end = std::chrono::system_clock::now();
+
+	std::chrono::duration<double> elapsed_seconds = end - start;
+	std::cout << "GPU two steps shared template dilation: " << elapsed_seconds.count() << "s\n";
+}
+
 int main(int argc, char* argv[])
 {
 	CUDADeviceInit(argc, const_cast<const char **>(argv));
@@ -181,6 +238,7 @@ int main(int argc, char* argv[])
 	{
 		std::cout << "Radio = " << radio << std::endl;
 
+		// Erosion
 		CalculateErodedImageOnHost(himage_src, himage_dst, radio);
 
 		CalculateErodedImageOnDeviceNaiveErosion(dimage_src, dimage_dst, himage_src, himage_tmp, radio);
@@ -198,7 +256,20 @@ int main(int argc, char* argv[])
 		CalculateErodedImageOnDeviceUseFilter(dimage_src, dimage_dst, dimage_tmp, himage_src, himage_tmp, radio);
 		CheckDiff(himage_dst, himage_tmp, Width, Height);
 
+		// Dilation
 		CalculateDilatedImageOnHost(himage_src, himage_dst, radio);
+
+		CalculateDilatedImageOnDeviceNaiveDilation(dimage_src, dimage_dst, himage_src, himage_tmp, radio);
+		CheckDiff(himage_dst, himage_tmp, Width, Height);
+
+		CalculateDilatedImageOnDeviceDilationTwoSteps(dimage_src, dimage_dst, dimage_tmp, himage_src, himage_tmp, radio);
+		CheckDiff(himage_dst, himage_tmp, Width, Height);
+
+		CalculateDilatedImageOnDeviceDilationTwoStepsSharedMemory(dimage_src, dimage_dst, dimage_tmp, himage_src, himage_tmp, radio);
+		CheckDiff(himage_dst, himage_tmp, Width, Height);
+
+		CalculateDilatedImageOnDeviceDilationTemplateSharedTwoStepsMemory(dimage_src, dimage_dst, dimage_tmp, himage_src, himage_tmp, radio);
+		CheckDiff(himage_dst, himage_tmp, Width, Height);
 
 		CalculateDilatedImageOnDeviceUseFilter(dimage_src, dimage_dst, dimage_tmp, himage_src, himage_tmp, radio);
 		CheckDiff(himage_dst, himage_tmp, Width, Height);
