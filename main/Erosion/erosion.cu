@@ -1,34 +1,12 @@
-
-#include <helper_cuda.h>       // helper for CUDA Error handling and initialization
+#include <helper_cuda.h>
 #include <host_defines.h>
-
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <cmath>
 
-__device__ int IMIN(int a, int b)
-{
-	return a > b ? b : a;
-}
+#include "erosion.h"
+#include "../Util/Util.h"
 
-__device__ int IMAX(int a, int b)
-{
-	return a > b ? a : b;
-}
-
-__device__ unsigned char UCMIN(unsigned char a, unsigned char b)
-{
-	return a > b ? b : a;
-}
-
-__device__ unsigned char UCMAX(unsigned char a, unsigned char b)
-{
-	return a > b ? a : b;
-}
-
-/**
- * Naive erosion kernel with each thread processing a square area.
- */
 __global__ void NaiveErosionKernel(unsigned char* src, unsigned char* dst, int width, int height, int radio)
 {
 	int colCount = blockIdx.x * blockDim.x + threadIdx.x;

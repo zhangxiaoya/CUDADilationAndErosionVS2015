@@ -8,6 +8,7 @@
 #include "Erosion/erosion.h"
 #include "Erosion/erosionCPU.h"
 #include "Dilation/dilation.h"
+#include "Dilation/dilationCPU.h"
 
 const int Width = 320;
 const int Height = 256;

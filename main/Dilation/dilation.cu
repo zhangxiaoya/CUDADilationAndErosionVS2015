@@ -1,11 +1,11 @@
-
-#include <helper_cuda.h>       // helper for CUDA Error handling and initialization
+#include <helper_cuda.h>
 #include <host_defines.h>
-
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <cmath>
+
 #include "dilation.h"
+#include "../Util/Util.h"
 
 __global__ void NaiveDilationKernel(unsigned char* src, unsigned char* dst, int width, int height, int radio)
 {

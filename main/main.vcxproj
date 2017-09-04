@@ -25,11 +25,14 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Dilation\dilation.h" />
+    <ClInclude Include="Dilation\dilationCPU.h" />
     <ClInclude Include="erosionMore.h" />
     <ClInclude Include="Erosion\erosion.h" />
     <ClInclude Include="Erosion\erosionCPU.h" />
+    <ClInclude Include="Util\Util.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Dilation\dilationCPU.cpp" />
     <ClCompile Include="Erosion\erosionCPU.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>

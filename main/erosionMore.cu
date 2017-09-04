@@ -1,5 +1,6 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+
 #include <cmath>
 
 typedef unsigned char(*pointFunction_t)(unsigned char, unsigned char);

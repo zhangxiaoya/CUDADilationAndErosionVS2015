@@ -14,6 +14,9 @@
     <ClCompile Include="Erosion\erosionCPU.cpp">
       <Filter>Erosion</Filter>
     </ClCompile>
+    <ClCompile Include="Dilation\dilationCPU.cpp">
+      <Filter>Dilation</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Erosion\erosionCPU.h">
@@ -26,6 +29,12 @@
     <ClInclude Include="Dilation\dilation.h">
       <Filter>Dilation</Filter>
     </ClInclude>
+    <ClInclude Include="Dilation\dilationCPU.h">
+      <Filter>Dilation</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util.h">
+      <Filter>Util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Erosion">
@@ -33,6 +42,9 @@
     </Filter>
     <Filter Include="Dilation">
       <UniqueIdentifier>{c320eb7f-5cf0-40db-96de-bd7126a090f8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util">
+      <UniqueIdentifier>{db7d0dee-8f85-41fc-afd2-cd930439fbf8}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
