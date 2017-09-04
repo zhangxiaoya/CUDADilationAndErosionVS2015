@@ -118,11 +118,11 @@ void CalculateErodedImageOnDeviceErosionTwoSteps(uint8_t* dimage_src, uint8_t* d
 void CalculateErodedImageOnDeviceErosionTwoStepsShared(uint8_t* dimage_src, uint8_t* dimage_dst, uint8_t* dimage_tmp, uint8_t* himage_src, uint8_t* himage_tmp, int radio)
 {
 	auto start = std::chrono::system_clock::now();
-	cudaMemcpy(dimage_src, himage_src, Width * Height , cudaMemcpyHostToDevice);
+	cudaMemcpy(dimage_src, himage_src, Width * Height, cudaMemcpyHostToDevice);
 
 	ErosionTwoStepsShared(dimage_src, dimage_dst, dimage_tmp, Width, Height, radio);
 
-	cudaMemcpy(himage_tmp, dimage_dst, Width * Height , cudaMemcpyDeviceToHost);
+	cudaMemcpy(himage_tmp, dimage_dst, Width * Height, cudaMemcpyDeviceToHost);
 	auto end = std::chrono::system_clock::now();
 
 	std::chrono::duration<double> elapsed_seconds = end - start;
@@ -161,13 +161,16 @@ int main(int argc, char* argv[])
 {
 	CUDADeviceInit(argc, const_cast<const char **>(argv));
 
-	uint8_t * dimage_src, *dimage_dst, *dimage_tmp;
-	uint8_t * himage_src, *himage_dst, *himage_tmp;
+	uint8_t* dimage_src;
+	uint8_t* dimage_dst;
+	uint8_t* dimage_tmp;
+	cudaMalloc(&dimage_src, Width * Height);
+	cudaMalloc(&dimage_dst, Width * Height);
+	cudaMalloc(&dimage_tmp, Width * Height);
 
-	cudaMalloc(&dimage_src, Width * Height );
-	cudaMalloc(&dimage_dst, Width * Height );
-	cudaMalloc(&dimage_tmp, Width * Height );
-
+	uint8_t* himage_src;
+	uint8_t* himage_dst;
+	uint8_t* himage_tmp;
 	cudaMallocHost(&himage_src, Width * Height);
 	cudaMallocHost(&himage_dst, Width * Height);
 	cudaMallocHost(&himage_tmp, Width * Height);
@@ -176,7 +179,7 @@ int main(int argc, char* argv[])
 
 	for (auto radio = 1; radio <= 15; radio++)
 	{
-		std::cout << "Radio = " << radio<<std::endl;
+		std::cout << "Radio = " << radio << std::endl;
 
 		CalculateErodedImageOnHost(himage_src, himage_dst, radio);
 
