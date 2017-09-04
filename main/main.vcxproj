@@ -19,10 +19,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <CudaCompile Include="Dilation\dilation.cu" />
     <CudaCompile Include="erosionMore.cu" />
     <CudaCompile Include="Erosion\erosion.cu" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Dilation\dilation.h" />
     <ClInclude Include="erosionMore.h" />
     <ClInclude Include="Erosion\erosion.h" />
     <ClInclude Include="Erosion\erosionCPU.h" />

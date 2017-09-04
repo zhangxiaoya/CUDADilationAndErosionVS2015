@@ -5,6 +5,9 @@
       <Filter>Erosion</Filter>
     </CudaCompile>
     <CudaCompile Include="erosionMore.cu" />
+    <CudaCompile Include="Dilation\dilation.cu">
+      <Filter>Dilation</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
@@ -20,6 +23,9 @@
       <Filter>Erosion</Filter>
     </ClInclude>
     <ClInclude Include="erosionMore.h" />
+    <ClInclude Include="Dilation\dilation.h">
+      <Filter>Dilation</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Erosion">
