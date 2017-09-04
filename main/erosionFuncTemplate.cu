@@ -25,8 +25,8 @@ __device__ void FilterStep2K(unsigned char * src, unsigned char * dst, int width
     int bx = blockIdx.x;
     int by = blockIdx.y;
 
-    int x = bx * tile_w + tx;
-    int y = by * tile_h + ty - radio;
+	auto x = bx * tile_w + tx;
+	auto y = by * tile_h + ty - radio;
 
     smem[ty * blockDim.x + tx] = boundaryValue;
     __syncthreads();
@@ -40,10 +40,10 @@ __device__ void FilterStep2K(unsigned char * src, unsigned char * dst, int width
 	{
         return;
     }
-	unsigned char * smem_thread = &smem[(ty - radio) * blockDim.x + tx];
-	unsigned char val = smem_thread[0];
+	auto smem_thread = &smem[(ty - radio) * blockDim.x + tx];
+	auto val = smem_thread[0];
 #pragma unroll
-    for (int yy = 1; yy <= 2 * radio; yy++)
+    for (auto yy = 1; yy <= 2 * radio; yy++)
 	{
         val = pPointOperation(val, smem_thread[yy * blockDim.x]);
     }
@@ -100,10 +100,10 @@ void Filter(unsigned char* src, unsigned char* dst, unsigned char* temp, int wid
 	// in host code: copy the function pointers to their host equivalent
 	// cudaMemcpyFromSymbol(&h_pointFunction, pComputeMin, sizeof(pointFunction_t));
 
-	int tile_w1 = 256, tile_h1 = 1;
+	auto tile_w1 = 256, tile_h1 = 1;
 	dim3 block2(tile_w1 + (2 * radio), tile_h1);
 	dim3 grid2(ceil(static_cast<float>(width) / tile_w1), ceil(static_cast<float>(height) / tile_h1));
-	int tile_w2 = 4, tile_h2 = 64;
+	auto tile_w2 = 4, tile_h2 = 64;
 	dim3 block3(tile_w2, tile_h2 + (2 * radio));
 	dim3 grid3(ceil(static_cast<float>(width) / tile_w2), ceil(static_cast<float>(height) / tile_h2));
 	FilterStep1<<<grid2,block2,block2.y * block2.x * sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1, radio);
