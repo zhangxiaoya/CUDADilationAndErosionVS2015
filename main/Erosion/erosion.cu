@@ -41,9 +41,6 @@ void NaiveErosion(uint8_t* src, uint8_t* dst, int width, int height, int radio)
 	auto cudaerr = cudaDeviceSynchronize();
 }
 
-/**
- * Two steps erosion using separable filters
- */
 __global__ void ErosionForEachCol(unsigned char* src, unsigned char* dst, int width, int height, int radio)
 {
 	int colCount = blockIdx.x * blockDim.x + threadIdx.x;
@@ -82,7 +79,7 @@ __global__ void ErosionFowEachRow(unsigned char* src, unsigned char * dst, int w
 	dst[rowCount * width + colCount] = minValue;
 }
 
-void ErosionTwoSteps(unsigned char * src, unsigned char * dst, unsigned char * temp, int width, int height, int radio)
+void ErosionTwoSteps(uint8_t* src, uint8_t* dst, uint8_t* temp, int width, int height, int radio)
 {
 	dim3 block(16, 16);
 	dim3 grid(ceil(static_cast<float>(width) / block.x), ceil(static_cast<float>(height) / block.y));
@@ -92,10 +89,6 @@ void ErosionTwoSteps(unsigned char * src, unsigned char * dst, unsigned char * t
 	cudaerr = cudaDeviceSynchronize();
 }
 
-
-/**
- * Two steps erosion using separable filters with shared memory.
- */
 __global__ void ErosionSharedMemoryForEachCol(unsigned char * src, unsigned char * dst, int radio, int width, int height, int tile_w, int tile_h)
 {
 	extern __shared__ unsigned char smem[];
@@ -156,7 +149,7 @@ __global__ void ErosionSharedMemoryForEachRow(unsigned char * src, unsigned char
 	dst[y * width + x] = val;
 }
 
-void ErosionTwoStepsSharedMemory(unsigned char * src, unsigned char* dst, unsigned char * temp, int width, int height, int radio)
+void ErosionTwoStepsSharedMemory(uint8_t* src, uint8_t* dst, uint8_t* temp, int width, int height, int radio)
 {
 	auto tile_w = 640;
 	auto tile_h = 1;
@@ -235,7 +228,7 @@ template<const int radio> __global__ void ErosionTemplateSharedForEachRow(unsign
 	dst[y * width + x] = val;
 }
 
-void ErosionTemplateTwoStepsSharedmemory(unsigned char * src, unsigned char * dst, unsigned char * temp, int width, int height, int radio)
+void ErosionTemplateTwoStepsSharedmemory(uint8_t* src, uint8_t* dst, uint8_t* temp, int width, int height, int radio)
 {
 	auto tile_w1 = 256, tile_h1 = 1;
 	dim3 block2(tile_w1 + (2 * radio), tile_h1);

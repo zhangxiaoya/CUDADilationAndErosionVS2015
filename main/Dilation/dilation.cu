@@ -79,7 +79,7 @@ __global__ void DilationForEachRow(unsigned char* src, unsigned char * dst, int 
 	dst[rowCount * width + colCount] = maxValue;
 }
 
-void DilationTwoSteps(unsigned char * src, unsigned char * dst, unsigned char * temp, int width, int height, int radio)
+void DilationTwoSteps(uint8_t * src, uint8_t * dst, uint8_t * temp, int width, int height, int radio)
 {
 	dim3 block(16, 16);
 	dim3 grid(ceil(static_cast<float>(width) / block.x), ceil(static_cast<float>(height) / block.y));
@@ -152,7 +152,7 @@ __global__ void DilationSharedMemoryForEachRow(unsigned char * src, unsigned cha
 	dst[y * width + x] = val;
 }
 
-void DilationTwoStepsSharedMemory(unsigned char * src, unsigned char* dst, unsigned char * temp, int width, int height, int radio)
+void DilationTwoStepsSharedMemory(uint8_t* src, uint8_t* dst, uint8_t* temp, int width, int height, int radio)
 {
 	auto tile_w = 640;
 	auto tile_h = 1;
@@ -231,7 +231,7 @@ template<const int radio> __global__ void DilationTemplateSharedForEachRow(unsig
 	dst[y * width + x] = val;
 }
 
-void DilationTemplateTwoStepsSharedmemory(unsigned char * src, unsigned char * dst, unsigned char * temp, int width, int height, int radio)
+void DilationTemplateTwoStepsSharedmemory(uint8_t* src, uint8_t * dst, uint8_t* temp, int width, int height, int radio)
 {
 	auto tile_w1 = 256, tile_h1 = 1;
 	dim3 block2(tile_w1 + (2 * radio), tile_h1);
